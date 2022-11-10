@@ -41,7 +41,9 @@ def generate():
     lightSleep=[]
     for item in data['data']:
         if(item["type"] == "long_sleep" or item["type"] == "sleep"):
-            label.append(item['day'])
+            tmpList=[]
+            tmpList = item['day'].split('-')
+            label.append(str(int(tmpList[1]))+"/"+tmpList[2])
             deepSleep.append(round(item["deep_sleep_duration"]/3600,2))
             remSleep.append(round((item["rem_sleep_duration"])/3600,2))
             lightSleep.append(round((item["light_sleep_duration"])/3600,2))
