@@ -40,7 +40,7 @@ def generate():
     awakeTime=[]
     lightSleep=[]
     for item in data['data']:
-        if(item["type"] == "long_sleep" or item["type"] == "sleep"):
+        if(item["type"] == "long_sleep"):
             tmpList=[]
             tmpList = item['day'].split('-')
             label.append(str(int(tmpList[1]))+"/"+tmpList[2])

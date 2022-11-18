@@ -16,7 +16,7 @@ while 1:
     print("Running update: ")
     update()
 
-    dt = datetime.now() + timedelta(minutes=20)
+    dt = datetime.now() + timedelta(hours=1)
 
     while datetime.now() < dt:
         time.sleep(60)
