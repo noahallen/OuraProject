@@ -6,10 +6,9 @@ import generateGraph as gg
 from datetime import datetime, timedelta
 
 def update():
-    cl.clean(3)
-    path = gg.generate()
+    cl.clean(1)
+    path = gg.generateLineGraph()
     image.showImage(path)
-
 
 
 while 1:
@@ -20,3 +19,4 @@ while 1:
 
     while datetime.now() < dt:
         time.sleep(60)
+
