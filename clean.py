@@ -8,12 +8,7 @@ from inky.auto import auto
 from PIL import Image
 
 def clean(cycles):
-    print("""Inky pHAT: Clean
-
-    Displays solid blocks of red, black, and white to clean the Inky pHAT
-    display of any ghosting.
-
-    """)
+    #print("""Inky pHAT: Clean Displays solid blocks of red, black, and white to clean the Inky pHAT display of any ghosting.""")
 
     inky_display = auto(ask_user=True, verbose=True)
 
@@ -28,9 +23,9 @@ def clean(cycles):
     # fill the display with each colour in turn.
 
     for i in range(cycles):
-        print("Cleaning cycle %i\n" % (i + 1))
+        #print("Cleaning cycle %i\n" % (i + 1))
         for j, c in enumerate(colours):
-            print("- updating with %s" % colour_names[j])
+            #print("- updating with %s" % colour_names[j])
             inky_display.set_border(c)
             for x in range(inky_display.WIDTH):
                 for y in range(inky_display.HEIGHT):
@@ -38,6 +33,6 @@ def clean(cycles):
             inky_display.set_image(img)
             inky_display.show()
             time.sleep(1)
-        print("\n")
+        #print("\n")
 
-    print("Cleaning complete!")
+    #print("Cleaning complete!")
