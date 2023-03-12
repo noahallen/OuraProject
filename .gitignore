@@ -1,3 +1,4 @@
 # Ignore files related to API keys
 .env
 images/
+__pycache__/

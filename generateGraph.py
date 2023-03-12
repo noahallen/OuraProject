@@ -52,6 +52,7 @@ def generateLineGraph():
     label=np.array(label)
 
     fig, ax = plt.subplots(edgecolor="black",linewidth=10)
+    ax.grid(axis='y')
     ax.set_title('Past Month\'s Sleep')
     ax.set_ylabel('Hours')
     myLocator = mticker.MultipleLocator(3)
