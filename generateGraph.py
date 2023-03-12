@@ -57,8 +57,8 @@ def generateLineGraph():
     myLocator = mticker.MultipleLocator(3)
     ax.xaxis.set_major_locator(myLocator)
     ax.set_ylim([0, 12])
-    plt.plot(label,totalSleep, color="white")
-    ax.set_facecolor("Darkred")
+    plt.plot(label,totalSleep, color="blue")
+    ax.set_facecolor("White")
     plt.savefig("/home/ourapi/Desktop/OuraStuff/images/outputLine.jpg")
 
     print("Graph Generated!")
