@@ -1,20 +1,71 @@
 import dotenv
 from dotenv import load_dotenv
-
-load_dotenv()
 import os
-token = os.getenv('TOKEN')
 import json
 import requests 
-
 import datetime as DT
-from datetime import date
+from datetime import date, datetime, timedelta
 import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib.ticker as mticker
 
+load_dotenv()
+token = os.getenv('TOKEN')
+naspath = os.getenv('NASPATH')
 
 
+def readFile(fileName):
+    try:
+        with open(naspath + fileName + ".json", "r") as file:
+            data = json.load(file)
+            return data
+    except:
+        f = open(naspath + fileName + ".json", "w+")
+        f.write('[[]]')
+        f.close()
+        return [[]]
+
+
+
+def storeToNAS():
+    month1 = ""
+    month2 = ""
+    flag = True
+
+    dataPulled = json.loads(makeRequest(10,"sleep",token))['data']
+    for item in dataPulled:
+        if(flag):
+            month1 = item["day"][5:7]
+            year1 = item["day"][0:4]
+            flag=False
+        else:
+            if(item["day"][5:6] != month1):
+                month2 = item["day"][5:7]
+                year2 = item["day"][0:4]
+    
+    if(month1 != ""):
+        fileName1 = str(year1) + " " + str(month1)
+        currData1 = readFile(fileName1)
+
+        for item in dataPulled:
+            if(item["id"] not in currData1[0] and item["day"][5:7] == month1):
+                currData1.append(item)
+                currData1[0].append(item["id"])
+        
+        with open(naspath + fileName1 + ".json", "w") as file_object:
+            json.dump(currData1, file_object, indent = "   ")
+
+    if(month2 != ""):
+        fileName2 = str(year2) + " " + str(month2)
+        currData2 = readFile(fileName2)
+
+        for item in dataPulled:
+            if(item["id"] not in currData2[0] and item["day"][5:7] == month2):
+                currData2.append(item)
+                currData2[0].append(item["id"])
+        
+        with open(naspath + fileName2 + ".json", "w") as file_object:
+            json.dump(currData2, file_object, indent = "   ")
 
 
 def makeRequest(lookbackDays,urlPiece,token):
@@ -28,11 +79,10 @@ def makeRequest(lookbackDays,urlPiece,token):
         'end_date': today 
     }
     headers = { 
-    'Authorization': 'Bearer '+token 
+    'Authorization': 'Bearer ' + token 
     }
     response = requests.request('GET', url, headers=headers, params=params) 
     return response.text
-
 
 def generateLineGraph():
     data = json.loads(makeRequest(30,"sleep",token))
