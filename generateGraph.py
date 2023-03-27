@@ -32,7 +32,7 @@ def storeToNAS():
     month2 = ""
     flag = True
 
-    dataPulled = json.loads(makeRequest(10,"sleep",token))['data']
+    dataPulled = json.loads(makeRequest(20,"sleep",token))['data']
     for item in dataPulled:
         if(flag):
             month1 = item["day"][5:7]
