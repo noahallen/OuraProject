@@ -11,9 +11,9 @@ def update():
         gg.storeToNAS()
         image.showImage(gg.generateLineGraph())
     except:
-        continue
-    
+        pass
 
+    
 
 while 1:
     try:
