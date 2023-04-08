@@ -32,7 +32,7 @@ def storeToNAS():
     month2 = ""
     flag = True
 
-    dataPulled = json.loads(makeRequest(20,"sleep",token))['data']
+    dataPulled = json.loads(makeRequest(25,"sleep",token))['data']
     for item in dataPulled:
         if(flag):
             month1 = item["day"][5:7]
@@ -112,7 +112,7 @@ def generateLineGraph():
     ax.set_facecolor("White")
     plt.savefig("/home/ourapi/Desktop/OuraStuff/images/outputLine.jpg")
 
-    print("Graph Generated!")
+    # print("Graph Generated!")
     return ("/home/ourapi/Desktop/OuraStuff/images/outputLine.jpg")
 
 def generateBarGraph():
@@ -150,6 +150,7 @@ def generateBarGraph():
     ax.set_ylim([0, 11])
     plt.savefig("/home/ourapi/Desktop/OuraStuff/images/outputBar.jpg")
 
-    print("Graph Generated!")
+    # print("Graph Generated!")
     return ("/home/ourapi/Desktop/OuraStuff/images/outputBar.jpg")
+
 

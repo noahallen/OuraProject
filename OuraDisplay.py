@@ -5,16 +5,20 @@ import time
 import generateGraph as gg
 from datetime import datetime, timedelta
 
-def update(dateTime):
-    gg.storeToNAS()
+def update():
     cl.clean(3)
-    image.showImage(gg.generateLineGraph())
+    try:
+        gg.storeToNAS()
+        image.showImage(gg.generateLineGraph())
+    except:
+        continue
+    
 
 
 while 1:
     try:
-        update(datetime.now().date())
-        dt = datetime.now() + timedelta(hours=24)
+        update()
+        dt = datetime.now() + timedelta(hours=5)
         while datetime.now() < dt:
             time.sleep(60)
     except:
