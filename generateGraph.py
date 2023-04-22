@@ -16,63 +16,93 @@ naspath = os.getenv('NASPATH')
 
 def readFile(fileName):
     try:
-        with open(naspath + fileName + ".json", "r") as file:
+        with open(fileName, "r") as file:
             data = json.load(file)
             return data
     except:
-        f = open(naspath + fileName + ".json", "w+")
+        f = open(fileName, "w+")
         f.write('[[]]')
         f.close()
         return [[]]
 
-def storeToNAS():
-    dataPulled = json.loads(makeRequest(100, "sleep", token))["data"]
+def storeToNAS(data_type):
+    if(data_type=="heartrate"):
+        dataPulled = json.loads(makeRequest(0, 20, data_type, token))["data"]
+    else:
+        dataPulled = json.loads(makeRequest(0, 20, data_type, token))["data"]
+
+    data_dir = os.path.join(naspath, data_type)
+    if not os.path.exists(data_dir):
+        os.makedirs(data_dir)
 
     months_data = {}
 
     for item in dataPulled:
-        month = item["day"][5:7]
-        year = item["day"][0:4]
-        fileName = "Sleep " + str(year) + " " + str(month) + ".json"
+        if data_type == "heartrate":
+            day = item["timestamp"][:10]
+        else:
+            day = item["day"]
 
-        if fileName not in months_data:
-            if os.path.exists(naspath + fileName):
-                months_data[fileName] = readFile(fileName)
-                months_data[fileName][0] = set(months_data[fileName][0])
+        month = day[5:7]
+        year = day[0:4]
+        fileName = f"{year} {month}.json"
+        filePath = os.path.join(data_dir, fileName)
+
+        if filePath not in months_data:
+            if os.path.exists(filePath):
+                months_data[filePath] = readFile(filePath)
+                months_data[filePath][0] = set(months_data[filePath][0])
             else:
-                months_data[fileName] = [set(),]
+                months_data[filePath] = [set(),]
 
-        if item["id"] not in months_data[fileName][0]:
-            months_data[fileName].append(item)
-            months_data[fileName][0].add(item["id"])
+        if data_type == "heartrate":
+            if item["timestamp"] not in months_data[filePath][0]:
+                months_data[filePath].append(item)
+                months_data[filePath][0].add(item["timestamp"])
+        else:
+            if item["id"] not in months_data[filePath][0]:
+                months_data[filePath].append(item)
+                months_data[filePath][0].add(item["id"])
 
-    for fileName, currData in months_data.items():
-        with open(naspath + fileName, "w") as file_object:
-            if os.path.exists(naspath + fileName):
-                existing_data = readFile(fileName)
+    for filePath, currData in months_data.items():
+        with open(filePath, "w") as file_object:
+            if os.path.exists(filePath):
+                existing_data = readFile(filePath)
                 existing_data[0] = set(existing_data[0])
                 for item in currData[1:]:
-                    if item["id"] not in existing_data[0]:
-                        existing_data.append(item)
-                        existing_data[0].add(item["id"])
+                    if data_type == "heartrate":
+                        if item["timestamp"] not in existing_data[0]:
+                            existing_data.append(item)
+                            existing_data[0].add(item["timestamp"])
+                    else:
+                        if item["id"] not in existing_data[0]:
+                            existing_data.append(item)
+                            existing_data[0].add(item["id"])
                 json.dump([list(existing_data[0])] + existing_data[1:], file_object, indent="   ")
             else:
                 json.dump(currData, file_object, indent="   ")
 
-def makeRequest(lookbackDays,urlPiece,token):
-    #Dates format: YYYY-MM-DD
-    today = date.today()+DT.timedelta(1)
-    timeAgo = today - DT.timedelta(lookbackDays)
+def makeRequest(daysFromNow1, daysFromNow2, urlPiece, token):
+    # Dates format: YYYY-MM-DD
+    today = date.today()
+    timeAgo = today - DT.timedelta(daysFromNow1) + DT.timedelta(1)
+    timeAgo2 = today - DT.timedelta(daysFromNow2)
 
-    url = 'https://api.ouraring.com/v2/usercollection/'+urlPiece 
-    params={ 
-        'start_date': timeAgo, 
-        'end_date': today 
+    url = 'https://api.ouraring.com/v2/usercollection/' + urlPiece
+    if urlPiece == 'heartrate':
+        params = {
+            'start_datetime': datetime.combine(timeAgo2, datetime.min.time()),
+            'end_datetime': datetime.combine(timeAgo, datetime.min.time())
+        }
+    else:
+        params = {
+            'start_date': timeAgo2,
+            'end_date': timeAgo
+        }
+    headers = {
+        'Authorization': 'Bearer ' + token
     }
-    headers = { 
-    'Authorization': 'Bearer ' + token 
-    }
-    response = requests.request('GET', url, headers=headers, params=params) 
+    response = requests.request('GET', url, headers=headers, params=params)
     return response.text
 
 def extractSleepDataFromNAS(start_date, end_date):
@@ -112,7 +142,7 @@ def generateLineGraph():
         data = extractSleepDataFromNAS(start_date, end_date)
     except Exception as e:
         print(f"Error: {e}")
-        data = json.loads(makeRequest(30,"sleep",token))['data']
+        data = json.loads(makeRequest(0, 30,"sleep",token))['data']
 
     label=[]
     totalSleep=[]
@@ -149,7 +179,7 @@ def generateBarGraph():
         data = extractSleepDataFromNAS(start_date, end_date)
     except Exception as e:
         print(f"Error: {e}")
-        data = json.loads(makeRequest(7,"sleep",token))['data']
+        data = json.loads(makeRequest(0,7,"sleep",token))['data']
 
     label=[]
     deepSleep=[]
@@ -185,4 +215,3 @@ def generateBarGraph():
 
     # print("Graph Generated!")
     return ("/home/ourapi/Desktop/OuraStuff/images/outputBar.jpg")
-

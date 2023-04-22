@@ -8,7 +8,14 @@ from datetime import datetime, timedelta
 def update():
     cl.clean(3)
     try:
-        gg.storeToNAS()
+        gg.storeToNAS("daily_sleep")
+        gg.storeToNAS("daily_activity")
+        gg.storeToNAS("daily_readiness")
+        gg.storeToNAS("heartrate")
+        gg.storeToNAS("sleep")
+        gg.storeToNAS("workout")
+        gg.storeToNAS("tag")
+        gg.storeToNAS("session")
         image.showImage(gg.generateLineGraph())
     except:
         pass
