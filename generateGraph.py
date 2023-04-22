@@ -8,11 +8,11 @@ from datetime import date, datetime, timedelta
 import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib.ticker as mticker
+import glob
 
 load_dotenv()
 token = os.getenv('TOKEN')
 naspath = os.getenv('NASPATH')
-
 
 def readFile(fileName):
     try:
@@ -25,48 +25,39 @@ def readFile(fileName):
         f.close()
         return [[]]
 
-
-
 def storeToNAS():
-    month1 = ""
-    month2 = ""
-    flag = True
+    dataPulled = json.loads(makeRequest(100, "sleep", token))["data"]
 
-    dataPulled = json.loads(makeRequest(25,"sleep",token))['data']
+    months_data = {}
+
     for item in dataPulled:
-        if(flag):
-            month1 = item["day"][5:7]
-            year1 = item["day"][0:4]
-            flag=False
-        else:
-            if(item["day"][5:6] != month1):
-                month2 = item["day"][5:7]
-                year2 = item["day"][0:4]
-    
-    if(month1 != ""):
-        fileName1 = str(year1) + " " + str(month1)
-        currData1 = readFile(fileName1)
+        month = item["day"][5:7]
+        year = item["day"][0:4]
+        fileName = "Sleep " + str(year) + " " + str(month) + ".json"
 
-        for item in dataPulled:
-            if(item["id"] not in currData1[0] and item["day"][5:7] == month1):
-                currData1.append(item)
-                currData1[0].append(item["id"])
-        
-        with open(naspath + fileName1 + ".json", "w") as file_object:
-            json.dump(currData1, file_object, indent = "   ")
+        if fileName not in months_data:
+            if os.path.exists(naspath + fileName):
+                months_data[fileName] = readFile(fileName)
+                months_data[fileName][0] = set(months_data[fileName][0])
+            else:
+                months_data[fileName] = [set(),]
 
-    if(month2 != ""):
-        fileName2 = str(year2) + " " + str(month2)
-        currData2 = readFile(fileName2)
+        if item["id"] not in months_data[fileName][0]:
+            months_data[fileName].append(item)
+            months_data[fileName][0].add(item["id"])
 
-        for item in dataPulled:
-            if(item["id"] not in currData2[0] and item["day"][5:7] == month2):
-                currData2.append(item)
-                currData2[0].append(item["id"])
-        
-        with open(naspath + fileName2 + ".json", "w") as file_object:
-            json.dump(currData2, file_object, indent = "   ")
-
+    for fileName, currData in months_data.items():
+        with open(naspath + fileName, "w") as file_object:
+            if os.path.exists(naspath + fileName):
+                existing_data = readFile(fileName)
+                existing_data[0] = set(existing_data[0])
+                for item in currData[1:]:
+                    if item["id"] not in existing_data[0]:
+                        existing_data.append(item)
+                        existing_data[0].add(item["id"])
+                json.dump([list(existing_data[0])] + existing_data[1:], file_object, indent="   ")
+            else:
+                json.dump(currData, file_object, indent="   ")
 
 def makeRequest(lookbackDays,urlPiece,token):
     #Dates format: YYYY-MM-DD
@@ -84,13 +75,49 @@ def makeRequest(lookbackDays,urlPiece,token):
     response = requests.request('GET', url, headers=headers, params=params) 
     return response.text
 
+def extractSleepDataFromNAS(start_date, end_date):
+    sleep_data = []
+
+    # Generate a list of file names that potentially have data in the time span
+    date_range = [start_date + timedelta(days=x) for x in range((end_date - start_date).days + 1)]
+    file_names = ['Sleep {} {:02d}.json'.format(d.year, d.month) for d in date_range]
+    file_names = set(file_names)  # Remove duplicates
+
+    # Loop through each relevant file in the specified directory
+    for file in glob.glob(os.path.join(naspath, 'Sleep * *.json')):
+        if os.path.basename(file) in file_names:
+            try:
+                with open(file, 'r') as f:
+                    # Load the file as JSON
+                    sleep_json = json.load(f)
+
+                    # Loop through each sleep object in the file
+                    for sleep in sleep_json[1:]:
+                        # Get the date of the sleep object
+                        sleep_date = datetime.strptime(sleep['day'], '%Y-%m-%d').date()
+
+                        # Check if the date is within the inputted range
+                        if start_date <= sleep_date <= end_date:
+                            # Add the sleep object to the sleep data list
+                            sleep_data.append(sleep)
+            except:
+                continue
+
+    return sleep_data
+
 def generateLineGraph():
-    data = json.loads(makeRequest(30,"sleep",token))
+    try:
+        end_date = date.today()+DT.timedelta(1)
+        start_date = end_date - DT.timedelta(30)
+        data = extractSleepDataFromNAS(start_date, end_date)
+    except Exception as e:
+        print(f"Error: {e}")
+        data = json.loads(makeRequest(30,"sleep",token))['data']
 
     label=[]
     totalSleep=[]
 
-    for item in data['data']:
+    for item in data:
         if(item["type"] == "long_sleep"):
             tmpList=[]
             tmpList = item['day'].split('-')
@@ -116,14 +143,20 @@ def generateLineGraph():
     return ("/home/ourapi/Desktop/OuraStuff/images/outputLine.jpg")
 
 def generateBarGraph():
-    data = json.loads(makeRequest(7,"sleep",token))
+    try:
+        end_date = date.today()+ DT.timedelta(1)
+        start_date = end_date - DT.timedelta(7)
+        data = extractSleepDataFromNAS(start_date, end_date)
+    except Exception as e:
+        print(f"Error: {e}")
+        data = json.loads(makeRequest(7,"sleep",token))['data']
 
     label=[]
     deepSleep=[]
     remSleep=[]
     awakeTime=[]
     lightSleep=[]
-    for item in data['data']:
+    for item in data:
         if(item["type"] == "long_sleep"):
             tmpList=[]
             tmpList = item['day'].split('-')
@@ -152,5 +185,4 @@ def generateBarGraph():
 
     # print("Graph Generated!")
     return ("/home/ourapi/Desktop/OuraStuff/images/outputBar.jpg")
-
 

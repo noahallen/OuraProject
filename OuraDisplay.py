@@ -13,14 +13,13 @@ def update():
     except:
         pass
 
-    
-
 while 1:
     try:
+        time.sleep(60)
         update()
         dt = datetime.now() + timedelta(hours=5)
         while datetime.now() < dt:
             time.sleep(60)
     except:
-        continue
+        pass
 
