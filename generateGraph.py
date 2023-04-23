@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib.ticker as mticker
 import glob
+import re
 
 load_dotenv()
 token = os.getenv('TOKEN')
@@ -31,13 +32,20 @@ def readFile(fileName):
         return [[]]
 
 def storeToNAS(data_type):
-    # Pull data from API using makeRequest function
+    
+
+    
     if(data_type=="heartrate"):
         # If data_type is heartrate, extract "data" field from JSON response
-        dataPulled = json.loads(makeRequest(0, 20, data_type, token))["data"]
+        end_date = date.today() - timedelta(days=0) + DT.timedelta(1)
+        start_date = end_date - DT.timedelta(10)
+        dataPulled = json.loads(makeRequest(start_date, end_date, data_type, token))["data"]
+        
     else:
         # Otherwise, extract "data" field from JSON response
-        dataPulled = json.loads(makeRequest(0, 20, data_type, token))["data"]
+        end_date = date.today() - timedelta(days=0) + DT.timedelta(1)
+        start_date = end_date - DT.timedelta(30)
+        dataPulled = json.loads(makeRequest(start_date, end_date, data_type, token))["data"]
 
     # Create directory path to store data for this data_type on NAS
     data_dir = os.path.join(naspath, data_type)
@@ -108,12 +116,7 @@ def storeToNAS(data_type):
             else:
                 json.dump(currData, file_object, indent="   ")
 
-def makeRequest(daysFromNow1, daysFromNow2, urlPiece, token):
-    # Get the current date
-    today = date.today()
-    # Calculate the dates for the time range we want to query
-    timeAgo = today - timedelta(days=daysFromNow1) + timedelta(days=1)
-    timeAgo2 = today - timedelta(days=daysFromNow2)
+def makeRequest(dateStart, dateEnd, urlPiece, token):
 
     # Construct the API endpoint URL
     url = 'https://api.ouraring.com/v2/usercollection/' + urlPiece
@@ -121,13 +124,13 @@ def makeRequest(daysFromNow1, daysFromNow2, urlPiece, token):
     # Depending on the endpoint we're querying, construct the request parameters
     if urlPiece == 'heartrate':
         params = {
-            'start_datetime': datetime.combine(timeAgo2, datetime.min.time()),
-            'end_datetime': datetime.combine(timeAgo, datetime.min.time())
+            'start_datetime': datetime.combine(dateStart, datetime.min.time()),
+            'end_datetime': datetime.combine(dateEnd, datetime.min.time())
         }
     else:
         params = {
-            'start_date': timeAgo2,
-            'end_date': timeAgo
+            'start_date': dateStart,
+            'end_date': dateEnd
         }
     
     # Construct the headers for the API request
@@ -139,45 +142,89 @@ def makeRequest(daysFromNow1, daysFromNow2, urlPiece, token):
     response = requests.request('GET', url, headers=headers, params=params)
     return response.text
 
-def extractSleepDataFromNAS(start_date, end_date):
-    sleep_data = []
+def get_files(data_type):
+    data_path = os.path.join(naspath, data_type.lower())
+    file_names = os.listdir(data_path)
+    files = [os.path.join(data_path, f) for f in file_names]
+    return files
 
-    # Generate a list of file names that potentially have data in the time span
-    date_range = [start_date + timedelta(days=x) for x in range((end_date - start_date).days + 1)]
-    file_names = ['Sleep {} {:02d}.json'.format(d.year, d.month) for d in date_range]
-    file_names = set(file_names)  # Remove duplicates
+def extractDataFromNAS(start_date, end_date, data_type):
+    files = get_files(data_type)
 
-    # Loop through each relevant file in the specified directory
-    for file in glob.glob(os.path.join(naspath, 'Sleep * *.json')):
-        if os.path.basename(file) in file_names:
-            try:
-                with open(file, 'r') as f:
-                    # Load the file as JSON
-                    sleep_json = json.load(f)
+    data = []
+    for file in files:
+        with open(file) as f:
+            file_data = json.load(f)
 
-                    # Loop through each sleep object in the file
-                    for sleep in sleep_json[1:]:
-                        # Get the date of the sleep object
-                        sleep_date = datetime.strptime(sleep['day'], '%Y-%m-%d').date()
+            for record in file_data[1:]:
+                day = datetime.strptime(record["day"], '%Y-%m-%d').date()
 
-                        # Check if the date is within the inputted range
-                        if start_date <= sleep_date <= end_date:
-                            # Add the sleep object to the sleep data list
-                            sleep_data.append(sleep)
-            except:
-                continue
+                if start_date <= day <= end_date:
+                    data.append(record)
 
-    return sleep_data
+    return data
 
-def generateLineGraph():
-    # Attempt to extract sleep data from the past 30 days, or load from API if there is an error
+def generateLineGraph(title, ylabel, start_date, end_date, graph_type, item_type):
+    # Attempt to extract data for the given time period and graph type,
+    # or load from API if there is an error
     try:
-        end_date = date.today() + DT.timedelta(1)
-        start_date = end_date - DT.timedelta(30)
-        data = extractSleepDataFromNAS(start_date, end_date)
+        data = extractDataFromNAS(start_date, end_date, graph_type)
     except Exception as e:
         print(f"Error: {e}")
-        data = json.loads(makeRequest(0, 30,"sleep",token))['data']
+        data = json.loads(makeRequest(start_date, end_date, graph_type, token))['data']
+
+    # Initialize label and value lists
+    label=[]
+    values=[]
+
+    # Loop through the data and extract relevant information
+    for item in data:
+
+        if(graph_type == "sleep"):
+            if item["type"] == item_type:
+                tmpList=[]
+                tmpList = item['day'].split('-')
+                label.append(str(int(tmpList[1]))+"/"+tmpList[2])
+                values.append(round(item["deep_sleep_duration"]/3600,2) + round((item["rem_sleep_duration"])/3600,2) + round((item["light_sleep_duration"])/3600,2))
+        else:
+            day = datetime.strptime(item['day'], '%Y-%m-%d').date()
+            label.append(day.strftime("%m/%d"))
+            values.append(item[item_type])
+            
+
+    # Convert lists to numpy arrays
+    values = np.array(values)
+    label = np.array(label)
+
+    # Create figure and axis objects
+    fig, ax = plt.subplots(edgecolor="black",linewidth=10)
+
+    # Add grid to y-axis and set title, ylabel, and ylim
+    ax.grid(axis='y')
+    ax.set_title(title)
+    ax.set_ylabel(ylabel)
+
+    # Set x-axis tick spacing and plot the line graph
+    myLocator = mticker.MultipleLocator(3)
+    ax.xaxis.set_major_locator(myLocator)
+    plt.plot(label, values, color="blue")
+
+    # Set the background color and save the graph to a file
+    ax.set_facecolor("White")
+    plt.savefig("/home/ourapi/Desktop/OuraStuff/images/"+title+" line graph.jpg")
+
+    # Return the filepath to the saved graph
+    return ("/home/ourapi/Desktop/OuraStuff/images/"+title+" line graph.jpg")
+
+def generateSleepLineGraph():
+    # Attempt to extract sleep data from the past 30 days, or load from API if there is an error
+    end_date = date.today() - timedelta(days=0) + DT.timedelta(1)
+    start_date = end_date - DT.timedelta(30)
+    try:
+        data = extractDataFromNAS(start_date, end_date, "sleep")
+    except Exception as e:
+        print(f"Error: {e}")
+        data = json.loads(makeRequest(start_date, end_date,"sleep",token))['data']
 
     # Initialize label and totalSleep lists
     label=[]
@@ -218,13 +265,13 @@ def generateLineGraph():
 
 def generateBarGraph():
     # Try to extract sleep data from NAS drive, if there is an error use data from API instead
+    end_date = date.today() - timedelta(days=0) + DT.timedelta(1)
+    start_date = end_date - DT.timedelta(7)
     try:
-        end_date = date.today()+ DT.timedelta(1)
-        start_date = end_date - DT.timedelta(7)
-        data = extractSleepDataFromNAS(start_date, end_date)
+        data = extractDataFromNAS(start_date, end_date, "sleep")
     except Exception as e:
         print(f"Error: {e}")
-        data = json.loads(makeRequest(0,7,"sleep",token))['data']
+        data = json.loads(makeRequest(start_date, end_date,"sleep",token))['data']
 
     # Initialize empty lists for each type of sleep data
     label=[]
@@ -270,3 +317,50 @@ def generateBarGraph():
 
     # Return filepath to saved image file
     return ("/home/ourapi/Desktop/OuraStuff/images/outputBar.jpg")
+
+def generateActivityBarGraph():
+    # Attempt to extract activity data from the past 30 days, or load from API if there is an error
+    end_date = date.today() - timedelta(days=0) + DT.timedelta(1)
+    start_date = end_date - DT.timedelta(10)
+    try:
+        data = extractDataFromNAS(start_date, end_date, "daily_activity")
+    except Exception as e:
+        print(f"Error: {e}")
+        data = json.loads(makeRequest(start_date, end_date,"daily_activity",token))['data']
+
+    # Initialize label and stepCount lists
+    label=[]
+    activityCount=[]
+
+    # Loop through the activity data and extract relevant information
+    for item in data:
+        day = datetime.strptime(item['day'], '%Y-%m-%d').date()
+        label.append(day.strftime("%m/%d"))
+        activityCount.append(item['total_calories'])
+
+    # Convert lists to numpy arrays
+    activityCount=np.array(activityCount)
+    label=np.array(label)
+
+    # Create figure and axis objects
+    fig, ax = plt.subplots(edgecolor="black",linewidth=10)
+
+    # Add grid to y-axis and set title, ylabel, and ylim
+    ax.grid(axis='y')
+    ax.set_title('Daily Activity')
+    ax.set_ylabel('Calories')
+    ax.set_ylim([0, 5000])
+
+    # Set x-axis tick spacing and plot the bar graph
+    myLocator = mticker.MultipleLocator(1)
+    ax.xaxis.set_major_locator(myLocator)
+    ax.bar(label, activityCount, color="orange")
+
+    # Set the background color and save the graph to a file
+    ax.set_facecolor("White")
+    plt.savefig("/home/ourapi/Desktop/OuraStuff/images/outputActivityBar.jpg")
+
+    # Return the filepath to the saved graph
+    return ("/home/ourapi/Desktop/OuraStuff/images/outputActivityBar.jpg")
+
+
