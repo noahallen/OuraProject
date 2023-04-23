@@ -3,7 +3,8 @@ import image
 import os
 import time
 import generateGraph as gg
-from datetime import datetime, timedelta
+import datetime as DT
+from datetime import date, datetime, timedelta
 
 def update():
     cl.clean(3)
@@ -16,8 +17,9 @@ def update():
         gg.storeToNAS("workout")
         gg.storeToNAS("tag")
         gg.storeToNAS("session")
-        
-        image.showImage(gg.generateSleepLineGraph())
+        end_date = date.today() - timedelta(days=0) + DT.timedelta(1)
+        start_date = end_date - DT.timedelta(30)
+        image.showImage(gg.generateLineGraph("Past Month's Sleep", "Hours", start_date, end_date,"sleep","long_sleep"))
     except Exception as e: 
         image.showText(e)
 

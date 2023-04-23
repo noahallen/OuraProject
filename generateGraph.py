@@ -31,20 +31,29 @@ def readFile(fileName):
         # Return the empty 2D list
         return [[]]
 
-def storeToNAS(data_type):
-    
+def getValByIndex(json_data, index_str):
+    # Split the index string into a list of keys
+    keys = index_str.split('/')
+    # Loop through the keys to access the nested dictionaries
+    for key in keys:
+        json_data = json_data.get(key)
+        if json_data is None:
+            return None
+    # Return the final value
+    return json_data
 
-    
+def storeToNAS(data_type):
+
     if(data_type=="heartrate"):
         # If data_type is heartrate, extract "data" field from JSON response
         end_date = date.today() - timedelta(days=0) + DT.timedelta(1)
-        start_date = end_date - DT.timedelta(10)
+        start_date = end_date - DT.timedelta(5)
         dataPulled = json.loads(makeRequest(start_date, end_date, data_type, token))["data"]
         
     else:
         # Otherwise, extract "data" field from JSON response
         end_date = date.today() - timedelta(days=0) + DT.timedelta(1)
-        start_date = end_date - DT.timedelta(30)
+        start_date = end_date - DT.timedelta(15)
         dataPulled = json.loads(makeRequest(start_date, end_date, data_type, token))["data"]
 
     # Create directory path to store data for this data_type on NAS
@@ -157,12 +166,79 @@ def extractDataFromNAS(start_date, end_date, data_type):
             file_data = json.load(f)
 
             for record in file_data[1:]:
-                day = datetime.strptime(record["day"], '%Y-%m-%d').date()
-
-                if start_date <= day <= end_date:
-                    data.append(record)
-
+                if data_type == "heartrate":
+                    date = datetime.fromisoformat(record["timestamp"]).date()
+                    if start_date <= date <= end_date:
+                        data.append(record)
+                else:
+                    day = datetime.strptime(record["day"], '%Y-%m-%d').date()
+                    if start_date <= day <= end_date:
+                        data.append(record)
     return data
+
+def generateBarGraph(title, ylabel, start_date, end_date, graph_type, item_type):
+    # Attempt to extract data for the given time period and graph type,
+    # or load from API if there is an error
+    try:
+        data = extractDataFromNAS(start_date, end_date, graph_type)
+    except Exception as e:
+        print(f"Error: {e}")
+        data = json.loads(makeRequest(start_date, end_date, graph_type, token))['data']
+
+    # Initialize label and value lists
+    label=[]
+    values=[]
+
+    # Loop through the data and extract relevant information
+    if graph_type == "heartrate":
+        heartrate_data = {}
+        for item in data:
+            day = datetime.fromisoformat(item["timestamp"]).date()
+            if day not in heartrate_data:
+                heartrate_data[day] = [getValByIndex(item, item_type)]
+            else:
+                heartrate_data[day].append(getValByIndex(item, item_type))
+        for day, heartrate_values in heartrate_data.items():
+            label.append(day.strftime("%m/%d"))
+            values.append(round(sum(heartrate_values)/len(heartrate_values), 2))
+
+    elif graph_type == "sleep":
+        for item in data:
+            if item["type"] == item_type:
+                tmpList=[]
+                tmpList = item['day'].split('-')
+                label.append(str(int(tmpList[1]))+"/"+tmpList[2])
+                values.append(round(item["deep_sleep_duration"]/3600,2) + round((item["rem_sleep_duration"])/3600,2) + round((item["light_sleep_duration"])/3600,2))
+    else:
+        for item in data:
+            day = datetime.strptime(item['day'], '%Y-%m-%d').date()
+            label.append(day.strftime("%m/%d"))
+            tmp = getValByIndex(item, item_type)
+            values.append(tmp)
+
+    # Convert lists to numpy arrays
+    values = np.array(values)
+    label = np.array(label)
+
+    # Create figure and axis objects
+    fig, ax = plt.subplots(edgecolor="black",linewidth=10)
+
+    # Add grid to y-axis and set title, ylabel, and ylim
+    ax.grid(axis='y')
+    ax.set_title(title)
+    ax.set_ylabel(ylabel)
+
+    # Set x-axis tick spacing and plot the bar graph
+    myLocator = mticker.MultipleLocator(3)
+    ax.xaxis.set_major_locator(myLocator)
+    plt.bar(label, values, color="blue")
+
+    # Set the background color and save the graph to a file
+    ax.set_facecolor("White")
+    plt.savefig("/home/ourapi/Desktop/OuraStuff/images/"+title+" bar graph.jpg")
+
+    # Return the filepath to the saved graph
+    return ("/home/ourapi/Desktop/OuraStuff/images/"+title+" bar graph.jpg")
 
 def generateLineGraph(title, ylabel, start_date, end_date, graph_type, item_type):
     # Attempt to extract data for the given time period and graph type,
@@ -178,18 +254,32 @@ def generateLineGraph(title, ylabel, start_date, end_date, graph_type, item_type
     values=[]
 
     # Loop through the data and extract relevant information
-    for item in data:
+    if graph_type == "heartrate":
+        heartrate_data = {}
+        for item in data:
+            day = datetime.fromisoformat(item["timestamp"]).date()
+            if day not in heartrate_data:
+                heartrate_data[day] = [getValByIndex(item, item_type)]
+            else:
+                heartrate_data[day].append(getValByIndex(item, item_type))
+        for day, heartrate_values in heartrate_data.items():
+            label.append(day.strftime("%m/%d"))
+            values.append(round(sum(heartrate_values)/len(heartrate_values), 2))
 
-        if(graph_type == "sleep"):
+    elif graph_type == "sleep":
+        for item in data:
             if item["type"] == item_type:
                 tmpList=[]
                 tmpList = item['day'].split('-')
                 label.append(str(int(tmpList[1]))+"/"+tmpList[2])
                 values.append(round(item["deep_sleep_duration"]/3600,2) + round((item["rem_sleep_duration"])/3600,2) + round((item["light_sleep_duration"])/3600,2))
-        else:
+    else:
+        for item in data:
             day = datetime.strptime(item['day'], '%Y-%m-%d').date()
             label.append(day.strftime("%m/%d"))
-            values.append(item[item_type])
+            tmp = getValByIndex(item, item_type)
+            values.append(tmp)
+            
             
 
     # Convert lists to numpy arrays
@@ -258,12 +348,12 @@ def generateSleepLineGraph():
 
     # Set the background color and save the graph to a file
     ax.set_facecolor("White")
-    plt.savefig("/home/ourapi/Desktop/OuraStuff/images/outputLine.jpg")
+    plt.savefig("/home/ourapi/Desktop/OuraStuff/images/Sleep Line Graph Hardcode.jpg")
 
     # Return the filepath to the saved graph
-    return ("/home/ourapi/Desktop/OuraStuff/images/outputLine.jpg")
+    return ("/home/ourapi/Desktop/OuraStuff/images/Sleep Line Graph Hardcode.jpg")
 
-def generateBarGraph():
+def generateSleepBarGraph():
     # Try to extract sleep data from NAS drive, if there is an error use data from API instead
     end_date = date.today() - timedelta(days=0) + DT.timedelta(1)
     start_date = end_date - DT.timedelta(7)
@@ -313,10 +403,10 @@ def generateBarGraph():
     ax.set_ylim([0, 11])
 
     # Save graph image as JPEG file
-    plt.savefig("/home/ourapi/Desktop/OuraStuff/images/outputBar.jpg")
+    plt.savefig("/home/ourapi/Desktop/OuraStuff/images/Sleep Bar Graph Hardcode.jpg")
 
     # Return filepath to saved image file
-    return ("/home/ourapi/Desktop/OuraStuff/images/outputBar.jpg")
+    return ("/home/ourapi/Desktop/OuraStuff/images/Sleep Bar Graph Hardcode.jpg")
 
 def generateActivityBarGraph():
     # Attempt to extract activity data from the past 30 days, or load from API if there is an error
@@ -364,3 +454,21 @@ def generateActivityBarGraph():
     return ("/home/ourapi/Desktop/OuraStuff/images/outputActivityBar.jpg")
 
 
+
+'''
+------------------------------------------
+Some example functions I can call are here
+------------------------------------------
+end_date = date.today() - timedelta(days=0) + DT.timedelta(1)
+start_date = end_date - DT.timedelta(30)
+
+generateSleepLineGraph()
+generateSleepBarGraph()
+generateBarGraph("Daily Sleep Total", "Hours", start_date, end_date,"sleep","long_sleep")
+generateBarGraph("Calories Burned in a Day", "Calories", start_date, end_date,"daily_activity","total_calories")
+generateLineGraph("Past Month's Sleep", "Hours", start_date, end_date,"sleep","long_sleep")
+generateLineGraph("Past Month's Calories Burned", "Calories", start_date, end_date,"daily_activity","total_calories")
+generateLineGraph("Past Month's Body Temperature", "Temperature", start_date, end_date,"daily_readiness","contributors/body_temperature")
+generateBarGraph("Past Month's Average Heartrate", "BPM", start_date, end_date,"heartrate","bpm")
+generateLineGraph("Past Month's Average Heartrate", "BPM", start_date, end_date,"heartrate","bpm")
+'''
