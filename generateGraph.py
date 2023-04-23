@@ -454,9 +454,10 @@ def generateActivityBarGraph():
     return ("/home/ourapi/Desktop/OuraStuff/images/outputActivityBar.jpg")
 
 '''
-------------------------------------------
-Some example functions I can call are here
-------------------------------------------
+---------------------------------------------------
+Some example functions I can call are here:
+---------------------------------------------------
+
 end_date = date.today() - timedelta(days=0) + DT.timedelta(1)
 start_date = end_date - DT.timedelta(30)
 
