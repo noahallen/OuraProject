@@ -7,6 +7,7 @@ from datetime import date, datetime, timedelta
 import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib.ticker as mticker
+from matplotlib.dates import AutoDateLocator, DateFormatter
 
 load_dotenv()
 token = os.getenv('TOKEN')
@@ -42,16 +43,15 @@ def getValByIndex(json_data, index_str):
 def storeToNAS(data_type):
 
     if(data_type=="heartrate"):
-        # If data_type is heartrate, extract "data" field from JSON response
         end_date = date.today() - timedelta(days=0) + DT.timedelta(1)
         start_date = end_date - DT.timedelta(5)
-        dataPulled = json.loads(makeRequest(start_date, end_date, data_type, token))["data"]
+        
         
     else:
-        # Otherwise, extract "data" field from JSON response
         end_date = date.today() - timedelta(days=0) + DT.timedelta(1)
         start_date = end_date - DT.timedelta(15)
-        dataPulled = json.loads(makeRequest(start_date, end_date, data_type, token))["data"]
+
+    dataPulled = json.loads(makeRequest(start_date, end_date, data_type, token))["data"]
 
     # Create directory path to store data for this data_type on NAS
     data_dir = os.path.join(naspath, data_type)
@@ -152,11 +152,14 @@ def get_files(data_type):
     data_path = os.path.join(naspath, data_type.lower())
     file_names = os.listdir(data_path)
     files = [os.path.join(data_path, f) for f in file_names]
-    return files
+
+    # Sort the file names based on their year and month information
+    sorted_files = sorted(files, key=lambda f: tuple(map(int, os.path.splitext(os.path.basename(f))[0].split()[::-1]))[::-1])
+
+    return sorted_files
 
 def extractDataFromNAS(start_date, end_date, data_type):
     files = get_files(data_type)
-
     data = []
     for file in files:
         with open(file) as f:
@@ -202,9 +205,8 @@ def generateBarGraph(title, ylabel, start_date, end_date, graph_type, item_type)
     elif graph_type == "sleep":
         for item in data:
             if item["type"] == item_type:
-                tmpList=[]
-                tmpList = item['day'].split('-')
-                label.append(str(int(tmpList[1]))+"/"+tmpList[2])
+                day = datetime.strptime(item['day'], '%Y-%m-%d').date()
+                label.append(day.strftime("%m/%d"))
                 values.append(round(item["deep_sleep_duration"]/3600,2) + round((item["rem_sleep_duration"])/3600,2) + round((item["light_sleep_duration"])/3600,2))
     else:
         for item in data:
@@ -224,10 +226,11 @@ def generateBarGraph(title, ylabel, start_date, end_date, graph_type, item_type)
     ax.grid(axis='y')
     ax.set_title(title)
     ax.set_ylabel(ylabel)
-    ax.set_ylim(np.mean(values) - 4*np.std(values), np.mean(values) + 4*np.std(values))
-    # Set x-axis tick spacing and plot the bar graph
-    myLocator = mticker.MultipleLocator(3)
-    ax.xaxis.set_major_locator(myLocator)
+    ax.set_ylim(np.mean(values) - 4*np.std(values), np.mean(values) + 5*np.std(values))
+
+    # Set x-axis tick spacing and plot the line graph
+    locator = AutoDateLocator()
+    ax.xaxis.set_major_locator(locator)
     plt.bar(label, values, color="orange")
 
     # Set the background color and save the graph to a file
@@ -266,9 +269,8 @@ def generateLineGraph(title, ylabel, start_date, end_date, graph_type, item_type
     elif graph_type == "sleep":
         for item in data:
             if item["type"] == item_type:
-                tmpList=[]
-                tmpList = item['day'].split('-')
-                label.append(str(int(tmpList[1]))+"/"+tmpList[2])
+                day = datetime.strptime(item['day'], '%Y-%m-%d').date()
+                label.append(day.strftime("%m/%d"))
                 values.append(round(item["deep_sleep_duration"]/3600,2) + round((item["rem_sleep_duration"])/3600,2) + round((item["light_sleep_duration"])/3600,2))
     else:
         for item in data:
@@ -277,11 +279,10 @@ def generateLineGraph(title, ylabel, start_date, end_date, graph_type, item_type
             tmp = getValByIndex(item, item_type)
             values.append(tmp)
             
-            
-
     # Convert lists to numpy arrays
     values = np.array(values)
     label = np.array(label)
+
 
     # Create figure and axis objects
     fig, ax = plt.subplots(edgecolor="black",linewidth=10)
@@ -290,11 +291,12 @@ def generateLineGraph(title, ylabel, start_date, end_date, graph_type, item_type
     ax.grid(axis='y')
     ax.set_title(title)
     ax.set_ylabel(ylabel)
-    ax.set_ylim(np.mean(values) - 4*np.std(values), np.mean(values) + 4*np.std(values))
+    ax.set_ylim(np.mean(values) - 4*np.std(values), np.mean(values) + 5*np.std(values))
 
     # Set x-axis tick spacing and plot the line graph
-    myLocator = mticker.MultipleLocator(3)
-    ax.xaxis.set_major_locator(myLocator)
+    locator = AutoDateLocator()
+    ax.xaxis.set_major_locator(locator)
+
     plt.plot(label, values, color="blue")
 
     # Set the background color and save the graph to a file
@@ -467,9 +469,9 @@ generateLineGraph("Past Month's Calories Burned", "Calories", start_date, end_da
 generateLineGraph("Past Month's Body Temperature", "Temperature", start_date, end_date,"daily_readiness","contributors/body_temperature")
 generateBarGraph("Past Month's Average Heartrate", "BPM", start_date, end_date,"heartrate","bpm")
 generateLineGraph("Past Month's Average Heartrate", "BPM", start_date, end_date,"heartrate","bpm")
+generateLineGraph("Past Year's Calories Burned", "Calories", start_date, end_date,"daily_activity","total_calories")
+generateLineGraph("Past Year's Calories Burned", "Calories", start_date, end_date,"daily_activity","total_calories")
+generateBarGraph("Past Month's Sleep", "Hours", start_date, end_date,"sleep","long_sleep")
 '''
-end_date = date.today() - timedelta(days=0) + DT.timedelta(1)
-start_date = end_date - DT.timedelta(30)
-generateLineGraph("Past Month's Sleep", "Hours", start_date, end_date,"sleep","long_sleep")
-generateLineGraph("Past Month's Calories Burned", "Calories", start_date, end_date,"daily_activity","total_calories")
-generateLineGraph("Past Month's Body Temperature", "Temperature", start_date, end_date,"daily_readiness","contributors/body_temperature")
+
+
