@@ -463,6 +463,7 @@ start_date = end_date - DT.timedelta(30)
 
 generateSleepLineGraph()
 generateSleepBarGraph()
+
 generateBarGraph("Daily Sleep Total", "Hours", start_date, end_date,"sleep","long_sleep")
 generateBarGraph("Calories Burned in a Day", "Calories", start_date, end_date,"daily_activity","total_calories")
 generateLineGraph("Past Month's Sleep", "Hours", start_date, end_date,"sleep","long_sleep")
