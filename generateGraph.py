@@ -475,5 +475,8 @@ generateLineGraph("Past Year's Calories Burned", "Calories", start_date, end_dat
 generateLineGraph("Past Year's Calories Burned", "Calories", start_date, end_date,"daily_activity","total_calories")
 generateBarGraph("Past Month's Sleep", "Hours", start_date, end_date,"sleep","long_sleep")
 '''
+end_date = date.today() - DT.timedelta(0) + DT.timedelta(1)
+start_date = end_date - DT.timedelta(30)
 
+generateLineGraph("Past Month's Sleep", "Hours", start_date, end_date,"sleep","long_sleep")
 
