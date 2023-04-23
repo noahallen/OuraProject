@@ -1,4 +1,3 @@
-import dotenv
 from dotenv import load_dotenv
 import os
 import json
@@ -8,8 +7,6 @@ from datetime import date, datetime, timedelta
 import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib.ticker as mticker
-import glob
-import re
 
 load_dotenv()
 token = os.getenv('TOKEN')
@@ -227,11 +224,11 @@ def generateBarGraph(title, ylabel, start_date, end_date, graph_type, item_type)
     ax.grid(axis='y')
     ax.set_title(title)
     ax.set_ylabel(ylabel)
-
+    ax.set_ylim(np.mean(values) - 4*np.std(values), np.mean(values) + 4*np.std(values))
     # Set x-axis tick spacing and plot the bar graph
     myLocator = mticker.MultipleLocator(3)
     ax.xaxis.set_major_locator(myLocator)
-    plt.bar(label, values, color="blue")
+    plt.bar(label, values, color="orange")
 
     # Set the background color and save the graph to a file
     ax.set_facecolor("White")
@@ -293,6 +290,7 @@ def generateLineGraph(title, ylabel, start_date, end_date, graph_type, item_type
     ax.grid(axis='y')
     ax.set_title(title)
     ax.set_ylabel(ylabel)
+    ax.set_ylim(np.mean(values) - 4*np.std(values), np.mean(values) + 4*np.std(values))
 
     # Set x-axis tick spacing and plot the line graph
     myLocator = mticker.MultipleLocator(3)
@@ -453,8 +451,6 @@ def generateActivityBarGraph():
     # Return the filepath to the saved graph
     return ("/home/ourapi/Desktop/OuraStuff/images/outputActivityBar.jpg")
 
-
-
 '''
 ------------------------------------------
 Some example functions I can call are here
@@ -472,3 +468,8 @@ generateLineGraph("Past Month's Body Temperature", "Temperature", start_date, en
 generateBarGraph("Past Month's Average Heartrate", "BPM", start_date, end_date,"heartrate","bpm")
 generateLineGraph("Past Month's Average Heartrate", "BPM", start_date, end_date,"heartrate","bpm")
 '''
+end_date = date.today() - timedelta(days=0) + DT.timedelta(1)
+start_date = end_date - DT.timedelta(30)
+generateLineGraph("Past Month's Sleep", "Hours", start_date, end_date,"sleep","long_sleep")
+generateLineGraph("Past Month's Calories Burned", "Calories", start_date, end_date,"daily_activity","total_calories")
+generateLineGraph("Past Month's Body Temperature", "Temperature", start_date, end_date,"daily_readiness","contributors/body_temperature")
