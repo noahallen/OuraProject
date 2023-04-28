@@ -201,7 +201,6 @@ def generateBarGraph(title, ylabel, start_date, end_date, graph_type, item_type)
         for day, heartrate_values in heartrate_data.items():
             label.append(day.strftime("%m/%d"))
             values.append(round(sum(heartrate_values)/len(heartrate_values), 2))
-
     elif graph_type == "sleep":
         for item in data:
             if item["type"] == item_type:
@@ -265,7 +264,6 @@ def generateLineGraph(title, ylabel, start_date, end_date, graph_type, item_type
         for day, heartrate_values in heartrate_data.items():
             label.append(day.strftime("%m/%d"))
             values.append(round(sum(heartrate_values)/len(heartrate_values), 2))
-
     elif graph_type == "sleep":
         for item in data:
             if item["type"] == item_type:
@@ -453,27 +451,124 @@ def generateActivityBarGraph():
     # Return the filepath to the saved graph
     return ("/home/ourapi/Desktop/OuraStuff/images/outputActivityBar.jpg")
 
+def generateScatterPlot(title, xlabel, ylabel, start_date, end_date, graph_type1, graph_type2, item_type1,item_type2):
+# Attempt to extract data for the given time period and graph type,
+    # or load from API if there is an error
+    try:
+        data1 = extractDataFromNAS(start_date, end_date, graph_type1)
+    except Exception as e:
+        print(f"Error: {e}")
+        data1 = json.loads(makeRequest(start_date, end_date, graph_type1, token))['data']
+
+    try:
+        data2 = extractDataFromNAS(start_date, end_date, graph_type2)
+    except Exception as e:
+        print(f"Error: {e}")
+        data2 = json.loads(makeRequest(start_date, end_date, graph_type2, token))['data']
+
+    # Initialize label and value lists
+    values1=[]
+    values2=[]
+
+    # Loop through the data and extract relevant information
+    if graph_type1 == "heartrate":
+        heartrate_data = {}
+        for item in data1:
+            day = datetime.fromisoformat(item["timestamp"]).date()
+            if day not in heartrate_data:
+                heartrate_data[day] = [getValByIndex(item, item_type1)]
+            else:
+                heartrate_data[day].append(getValByIndex(item, item_type1))
+        for day, heartrate_values in heartrate_data.items():
+            values1.append(round(sum(heartrate_values)/len(heartrate_values), 2))
+
+    elif graph_type1 == "sleep":
+        for item in data1:
+            if item["type"] == item_type1:
+                day = datetime.strptime(item['day'], '%Y-%m-%d').date()
+                values1.append(round(item["deep_sleep_duration"]/3600,2) + round((item["rem_sleep_duration"])/3600,2) + round((item["light_sleep_duration"])/3600,2))
+    else:
+        for item in data1:
+            day = datetime.strptime(item['day'], '%Y-%m-%d').date()
+            tmp = getValByIndex(item, item_type1)
+            values1.append(tmp)
+
+
+    # Loop through the data and extract relevant information
+    if graph_type2 == "heartrate":
+        heartrate_data = {}
+        for item in data2:
+            day = datetime.fromisoformat(item["timestamp"]).date()
+            if day not in heartrate_data:
+                heartrate_data[day] = [getValByIndex(item, item_type2)]
+            else:
+                heartrate_data[day].append(getValByIndex(item, item_type2))
+        for day, heartrate_values in heartrate_data.items():
+            values2.append(round(sum(heartrate_values)/len(heartrate_values), 2))
+
+    elif graph_type2 == "sleep":
+        for item in data2:
+            if item["type"] == item_type2:
+                day = datetime.strptime(item['day'], '%Y-%m-%d').date()
+                values2.append(round(item["deep_sleep_duration"]/3600,2) + round((item["rem_sleep_duration"])/3600,2) + round((item["light_sleep_duration"])/3600,2))
+    else:
+        for item in data2:
+            day = datetime.strptime(item['day'], '%Y-%m-%d').date()
+            tmp = getValByIndex(item, item_type2)
+            values2.append(tmp)
+            
+    # Convert lists to numpy arrays
+    values1 = np.array(values1)
+    values2 = np.array(values2)
+
+    # Create figure and axis objects
+    fig, ax = plt.subplots(edgecolor="black",linewidth=10)
+
+    # Add grid to y-axis and set title, ylabel, and ylim
+    ax.grid(axis='y')
+    ax.set_title(title)
+    ax.set_ylabel(ylabel)
+    ax.set_xlabel(xlabel)
+    # ax.set_ylim(np.mean(values1) - 4*np.std(values1), np.mean(values1) + 5*np.std(values1))
+
+    # Set x-axis tick spacing and plot the scatter plot
+    locator = AutoDateLocator()
+    ax.xaxis.set_major_locator(locator)
+
+    plt.scatter(values1, values2, color="orange")
+
+    # Set the background color and save the graph to a file
+    ax.set_facecolor("White")
+    plt.savefig("/home/ourapi/Desktop/OuraStuff/images/"+title+" scatter plot.jpg")
+
+    # Return the filepath to the saved graph
+    return ("/home/ourapi/Desktop/OuraStuff/images/"+title+" scatter plot.jpg")
+    
 '''
 ---------------------------------------------------
 Some example functions I can call are here:
 ---------------------------------------------------
 
-end_date = date.today() - timedelta(days=0) + DT.timedelta(1)
-start_date = end_date - DT.timedelta(30)
+# end_date = date.today() - DT.timedelta(1) + DT.timedelta(0)
+# start_date = date.today() - DT.timedelta(40)+ DT.timedelta(0)
 
 generateSleepLineGraph()
 generateSleepBarGraph()
 
-generateBarGraph("Daily Sleep Total", "Hours", start_date, end_date,"sleep","long_sleep")
-generateBarGraph("Calories Burned in a Day", "Calories", start_date, end_date,"daily_activity","total_calories")
-generateLineGraph("Past Month's Sleep", "Hours", start_date, end_date,"sleep","long_sleep")
-generateLineGraph("Past Month's Calories Burned", "Calories", start_date, end_date,"daily_activity","total_calories")
-generateLineGraph("Past Month's Body Temperature", "Temperature", start_date, end_date,"daily_readiness","contributors/body_temperature")
-generateBarGraph("Past Month's Average Heartrate", "BPM", start_date, end_date,"heartrate","bpm")
-generateLineGraph("Past Month's Average Heartrate", "BPM", start_date, end_date,"heartrate","bpm")
-generateLineGraph("Past Year's Calories Burned", "Calories", start_date, end_date,"daily_activity","total_calories")
-generateLineGraph("Past Year's Calories Burned", "Calories", start_date, end_date,"daily_activity","total_calories")
-generateBarGraph("Past Month's Sleep", "Hours", start_date, end_date,"sleep","long_sleep")
+# generateBarGraph("Daily Sleep Total", "Hours", start_date, end_date,"sleep","long_sleep")
+# generateBarGraph("Calories Burned in a Day", "Calories", start_date, end_date,"daily_activity","total_calories")
+# generateLineGraph("Past Month's Sleep", "Hours", start_date, end_date,"sleep","long_sleep")
+# generateLineGraph("Past Month's Calories Burned", "Calories", start_date, end_date,"daily_activity","total_calories")
+# generateLineGraph("Past Month's Body Temperature", "Temperature", start_date, end_date,"daily_readiness","contributors/body_temperature")
+# generateBarGraph("Past Month's Average Heartrate", "BPM", start_date, end_date,"heartrate","bpm")
+# generateLineGraph("Past Month's Average Heartrate", "BPM", start_date, end_date,"heartrate","bpm")
+# generateLineGraph("Past Month's Sedentary Time", "Seconds", start_date, end_date,"daily_activity","sedentary_time")
+# generateLineGraph("Past Year's Calories Burned", "Calories", start_date, end_date,"daily_activity","total_calories")
+# generateLineGraph("Past Year's Calories Burned", "Calories", start_date, end_date,"daily_activity","total_calories")
+# generateBarGraph("Past Month's Sleep", "Hours", start_date, end_date,"sleep","long_sleep")
+
+# generateScatterPlot("Calories Burned vs Average Heartrate", "Average Heartrate (BPM)","Calories Burned", start_date, end_date,"heartrate","daily_activity","bpm","total_calories")
 '''
+
 
 
