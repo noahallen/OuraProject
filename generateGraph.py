@@ -44,7 +44,7 @@ def storeToNAS(data_type):
 
     if(data_type=="heartrate"):
         end_date = date.today() - timedelta(days=0) + DT.timedelta(1)
-        start_date = end_date - DT.timedelta(5)
+        start_date = end_date - DT.timedelta(15)
         
         
     else:
@@ -545,6 +545,7 @@ def generateScatterPlot(title, xlabel, ylabel, start_date, end_date, graph_type1
     return ("/home/ourapi/Desktop/OuraStuff/images/"+title+" scatter plot.jpg")
     
 '''
+
 ---------------------------------------------------
 Some example functions I can call are here:
 ---------------------------------------------------
