@@ -40,16 +40,17 @@ def getValByIndex(json_data, index_str):
     # Return the final value
     return json_data
 
-def storeToNAS(data_type):
+def storeToNAS(data_type, days_back, date_width):
 
+    #For some reason this API call only allows around a max of 15 days so ideally store in small increments then use NAS data
     if(data_type=="heartrate"):
-        end_date = date.today() - timedelta(days=0) + DT.timedelta(1)
-        start_date = end_date - DT.timedelta(15)
+        end_date = date.today() - timedelta(days=days_back) + DT.timedelta(1)
+        start_date = end_date - DT.timedelta(date_width)
         
         
     else:
-        end_date = date.today() - timedelta(days=0) + DT.timedelta(1)
-        start_date = end_date - DT.timedelta(15)
+        end_date = date.today() - timedelta(days=days_back) + DT.timedelta(1)
+        start_date = end_date - DT.timedelta(date_width)
 
     dataPulled = json.loads(makeRequest(start_date, end_date, data_type, token))["data"]
 
